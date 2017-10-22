@@ -127,6 +127,28 @@ class user{
 		return $output;
 	}
 
+	function get_zippcash_account_details(){
+		global $apl;
+		global $db;
+
+		$return_data = new stdClass();
+
+		$query = "select sum(available_balance) as total_asset from ".$apl->user_wallet_table."";
+		$result = $db->get_results($query);
+		$return_data->total_asset = $result[0]->total_asset;
+
+		$query = "select available_balance from ".$apl->user_wallet_table." where user_id = '0'";
+		$result = $db->get_results($query);
+		$return_data->available_balance = $result[0]->available_balance;
+
+		$return_data->login_id = "xxx-xxxxx";
+		$return_data->wallet_id = "xxx-xxxxx";
+		$return_data->name = "ZippCash Account";
+		$return_data->currency = "Gourde";
+
+		return $return_data;
+	}
+	
 	function get_user_list(){
 		global $apl;
 		global $db;
@@ -161,6 +183,19 @@ class user{
 		return $user_data[0];
 		else
 		return false;
+	}
+
+	function update_passcode($user_id, $passcode){
+		global $apl;
+		global $db;
+
+		$update_data = array(
+			'passcode' => $passcode
+		);
+		$condition = array(
+			'user_id' => $user_id
+		);
+		return $db->update( $apl->user_table, $update_data, $condition );
 	}
 
 	function get_admin_data( $user_id ){
@@ -293,11 +328,11 @@ class user{
 		}
 		if(isset($_POST['phone'])){
 			if($_POST['phone'] != null){
-				if($this->is_phone_registered($_POST['phone'])){
+				if($this->is_phone_registered('+509' . $_POST['phone'])){
 					$error = true;
 					$error_message[] = "The phone number already exists";
 				}else{
-					$user_data['phone'] = $_POST['phone'];
+					$user_data['phone'] = '+509' . $_POST['phone'];
 				}
 			}else {
 				$error = true;
@@ -405,6 +440,145 @@ class user{
 		}
 	}
 
+	function addAgent(){
+		global $db;
+		global $apl;
+		global $auth_id;
+		global $auth_token;
+
+		$error = false;
+		$error_message = array();
+
+		if(isset($_POST['agent_name'])){
+			if($_POST['agent_name'] != null){
+				$user_data['agent_name'] = $_POST['agent_name'];
+			}else {
+				$error = true;
+				$error_message[] = "Please enter agent's name";
+			}
+		}else{
+			$error = true;
+			$error_message[] = "Invalid agent's name";
+		}
+
+		if(isset($_POST['agent_email'])){
+			if($_POST['agent_email'] != null){
+				if($this->is_agent_email_registered($_POST['agent_email'])){
+					$error = true;
+					$error_message[] = "The email ID already exists";
+				}else{
+					$user_data['agent_email'] = $_POST['agent_email'];
+				}
+			}else {
+				$error = true;
+				$error_message[] = "Please enter the email";
+			}
+		}else{
+			$error = true;
+			$error_message[] = "Invalid email";
+		}
+		if(isset($_POST['agent_phone'])){
+			if($_POST['agent_phone'] != null){
+				if($this->is_agent_phone_registered($_POST['agent_phone'])){
+					$error = true;
+					$error_message[] = "The phone number already exists";
+				}else{
+					$user_data['agent_phone'] = $_POST['agent_phone'];
+				}
+			}else {
+				$error = true;
+				$error_message[] = "Please enter the phone number";
+			}
+		}else{
+			$error = true;
+			$error_message[] = "Invalid phone number";
+		}
+
+		if(!$error){
+			$user_data['status'] = "Active";
+			// $user_data['email_verification_code'] = $apl->get_random_number( 10 );
+			$password = $apl->get_random_number( 6 );
+			$user_data['password'] = md5($password);
+
+			if( $db->insert( $apl->agent_table, $user_data ) ){
+				$user_id = $db->insert_id;
+				$login_id = 'AG'.$user_id;
+
+				$receiver_number = $user_data['agent_phone'];
+			    
+			    // $params = array(
+			    //     'src' => '919871874489', // Sender's phone number with country code
+			    //     'dst' => '918447227929' ,// Receiver's phone number with country code
+			    //     'text' => 'Welcome to zippcash. You login id is ' + $user_data['agent_phone'] + ' and your password is ' + $user_data['password'],
+			    //     'method' => 'POST' // The method used to call the url
+			    // );
+			    // // Send message
+			    // $response = $plivo->send_message($params);
+
+
+			    # SMS sender ID.
+			    $src = 'ZippCash';
+			    
+			    # SMS destination number
+			    $dst = $receiver_number;
+			    
+			    # SMS text
+			    $text = 'Welcome to zippcash. Your login id is ' . $user_data['agent_phone'] . ' and password is ' . $password . ' Please visit https://tinyurl.com/mg3pb7b to login';
+
+			    $url = 'https://api.plivo.com/v1/Account/'.$auth_id.'/Message/';
+			    
+			    $data = array("src" => "$src", "dst" => "$dst", "text" => "$text");
+			    
+			    $data_string = json_encode($data);
+			    
+			    $ch=curl_init($url);
+			    
+			    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			    curl_setopt($ch, CURLOPT_POST, true);
+			    curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+			    curl_setopt($ch, CURLOPT_HEADER, true);
+			    curl_setopt($ch, CURLOPT_FRESH_CONNECT, true);
+			    curl_setopt($ch, CURLOPT_USERPWD, $auth_id . ":" . $auth_token);
+			    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+			    
+			    $response = @curl_exec( $ch );
+			    
+			    @curl_close($ch);
+
+				$output['success'] = true;
+				$output['data'] = 'Registration successful';
+				$output['login_id'] = $login_id;
+				$output['text_response'] = $response;
+				echo json_encode( $output );
+				die();
+			}else{
+				$error = true;
+				$error_message[] = "An error occured! Please try again later. " . mysql_error();
+				$output['success'] = false;
+				$output['data'] = '';
+				$output['data'] .= '<div class = "error">
+				<ul>';
+				foreach( $error_message as $value ):
+					$output['data'] .= '<li>'.$value.'</li>';
+				endforeach;
+				$output['data'] .= '</ul>
+				</div>';
+				echo json_encode( $output );
+				die();
+			}
+		}else{
+			$output['success'] = false;
+			$output['data'] = '';
+			$output['data'] .= '<div class = "error">';
+			foreach( $error_message as $value ):
+				$output['data'] .= '<p>'.$value.'</p>';
+			endforeach;
+			$output['data'] .= '</div>';
+			echo json_encode( $output );
+			die();
+		}
+	}
+
 	function getUserDetailsByLoginId(){
 		global $db;
 		global $apl;
@@ -482,6 +656,58 @@ class user{
 		if($error){
 			$output['success'] = false;
 			$output['data'] = $error_message;
+		}
+
+		echo json_encode($output);
+		die;
+	}
+
+	function addCredit(){
+		global $db;
+		global $apl;
+		$error = false;
+		$message = true;
+
+		if(isset($_POST['login_id'])){
+			if($_POST['login_id'] != null){
+				$user_id = $this->get_user_id_from_login_id($_POST['login_id']);
+				if(!$user_id){
+					$error = true;
+					$message = "Invalid user";
+				}
+			}else {
+				$error = true;
+				$message = "Invalid user";
+			}
+		}else{
+			$error = true;
+			$message = "Invalid user";
+		}
+		if(isset($_POST['credit_amount'])){
+			if($_POST['credit_amount'] != null && $_POST['credit_amount'] > 0 && is_numeric($_POST['credit_amount'])){
+				$credit_amount = $_POST['credit_amount'];
+			}else{
+				$error = true;
+				$message = "Invalid credit amount";
+			}
+		}else{
+			$error = true;
+			$message = "Invalid credit amount";
+		}
+
+		if(!$error){
+			if($this->add_user_credit($user_id, $credit_amount)){
+				$output['success'] = true;
+				$output['data'] = "The user account has been credit with Gourde " . $credit_amount;
+			}else{
+				$error = true;
+				$message = "Error occured! Unable to add credit to user." . mysql_error();
+			}
+		}
+
+		if($error){
+			$output['success'] = false;
+			$output['data'] = $message;
 		}
 
 		echo json_encode($output);
@@ -651,7 +877,7 @@ class user{
 		global $apl;
 		global $db;
 
-		$query = "select * from ".$apl->user_table." where login_id = '".$login_id."' limit 1";
+		$query = "select * from ".$apl->user_table." where (login_id = '".$login_id."' or phone = '".$login_id."') limit 1";
 		$results = $db->get_results($query);
 
 		if(count($results)){
@@ -787,6 +1013,30 @@ class user{
 		return false;
 	}
 
+	function add_user_credit($user_id, $credit_amount){
+		global $db;
+		global $apl;
+
+		if($user_id == null || $user_id == 0){
+			return false;
+		}
+		if($credit_amount == null || $credit_amount == 0){
+			return false;
+		}
+
+		if($this->user_exists($user_id)){
+			// First add the funds to ZippCash account. This will be one transaction.
+			if($this->make_transaction(0, $user_id, 'credit', 'cash_deposit', $credit_amount)){
+				//Update transfer of credit from ZippCash to user account. This will be two transaction. ZippCash account "Debit" Transaction and User account "Credit" Transaction
+				if($this->make_transaction(0, $user_id, 'debit', 'deposit_transfer', $credit_amount) && $this->make_transaction($user_id, 0, 'credit', 'deposit_transfer', $credit_amount)){
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
 	function withdraw_user_credit($user_id, $debit_amount){
 		global $db;
 		global $apl;
@@ -841,6 +1091,54 @@ class user{
 		global $db;
 
 		$result = $db->get_results( "select * from ".$apl->admin_table." where email = '".$email."' " );
+
+		if( count( $result ) > 0 )
+		return true;
+		else
+		return false;
+	}
+
+	function is_phone_registered( $phone ){
+		global $apl;
+		global $db;
+
+		$result = $db->get_results( "select * from ".$apl->user_table." where phone = '".$phone."' " );
+
+		if( count( $result ) > 0 )
+			return true;
+		else
+			return false;
+	}
+
+	function is_phone_verified( $phone ){
+		global $apl;
+		global $db;
+
+		$result = $db->get_results( "select * from ".$apl->user_table." where phone = '".$phone."' and phone_verified = 'yes' " );
+
+		if( count( $result ) > 0 )
+			return true;
+		else
+			return false;
+	}
+
+	function is_agent_email_registered( $email ){
+		global $apl;
+		global $db;
+
+		$result = $db->get_results( "select * from ".$apl->agent_table." where agent_email = '".$email."' and status = 'Active'" );
+
+		if( count( $result ) > 0 )
+		return true;
+		else
+		return false;
+	}
+
+	function is_agent_phone_registered( $phone ){
+		global $apl;
+		global $db;
+
+		$result = $db->get_results( "select * from ".$apl->agent_table." where agent_phone = '".$phone."' and status = 'Active' " );
 
 		if( count( $result ) > 0 )
 		return true;

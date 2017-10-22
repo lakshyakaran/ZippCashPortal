@@ -10,6 +10,10 @@ require_once "load.php";
 
 use \Firebase\JWT\JWT;
 
+$auth_id = "MAYTY1ZWIYODQZYMIYMD";
+
+$auth_token = "MmUxZTVlNGY4YmVhOWY4NDc2YTA0NmRkNjVkNGUw";
+
 $db = new db( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST);
 
 $apl = new aplController();
@@ -35,7 +39,7 @@ $JWT = new JWT;
 
 if( isset( $controller ) && isset( $action ) ){
 	if( class_exists( $controller ) && method_exists( $controller, $action ) ){
-		if( $action != 'sendVerificationCode' && $action != 'verifyVerificationCode' && $action != 'authenticateUser' && $action != 'sendTempVerificationCode' && $action != 'verifyTempVerificationCode' && $action != 'updatePassword'){
+		if( $action != 'sendVerificationCode' && $action != 'verifyVerificationCode' && $action != 'authenticateUser' && $action != 'sendTempVerificationCode' && $action != 'verifyTempVerificationCode' && $action != 'updatePassword' && $action != 'getLastLottery'){
 			$header_array = apache_request_headers();
 			// var_dump($header_array);
 			if(!isset($header_array['X-Auth-Token']) && !isset($header_array['x-auth-token'])){

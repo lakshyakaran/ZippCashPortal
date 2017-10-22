@@ -146,6 +146,10 @@ class user{
 				$error = true;
 				$error_message[] = "Tanpri antre modpas ou.";
 			endif;
+			if( empty( $post_data->dob ) ):
+				$error = true;
+				$error_message[] = "Please enter date of birth.";
+			endif;
 			if( !empty( $post_data->phone ) ):
 				if( strlen( $post_data->phone ) < 6 ):
 					$error = true;
@@ -160,17 +164,22 @@ class user{
 				$user_data['phone'] = $post_data->phone;
 				$user_data['country_code'] = $post_data->country_code;
 				$user_data['country_name'] = $post_data->country_name;
+				$user_data['dob'] = $post_data->dob;
 				$user_data['password'] = md5($post_data->password);
-				$user_data['verification_code'] = '1776';
+				$user_data['verification_code'] = $apl->get_random_number(4);
+
 				$user_data['user_type'] = 'individual';
 
 				if( $this->checkRegistered( 'boolean' ) ){
-					$update_data['verification_code'] = '1111';
+					$update_data['verification_code'] = $apl->get_random_number(4);
 					$condition = array(
 						'phone' => $user_data['phone'],
 						'country_code' => $user_data['country_code']
 					);
 					if( $db->update( $apl->user_table, $update_data, $condition ) ){
+						$text = $update_data['verification_code'] . ' is the verication code for registering at zippcash. Please do not share it with anyone for security purposes';
+						$phone = str_replace("+", "", $user_data['phone']);
+						$res = $this->sendText($text, $phone);
 						$output['success'] = true;
 						echo json_encode( $output );
 						die();
@@ -202,6 +211,9 @@ class user{
 							$output['success'] = false;
 							$output['error'] = 'Unable to create wallet';
 						}
+						$text = ($user_data['verification_code'] . ' is the verication code for registering at zippcash. Please do not share it with anyone for security purposes');
+						$phone = str_replace("+", "", $user_data['phone']);
+						$this->sendText($text, $phone);
 						echo json_encode( $output );
 						die();
 					}else{
@@ -212,6 +224,7 @@ class user{
 						die();
 					}
 				}
+
 			}else{
 				$output['success'] = false;
 				$output['data'] = $error_message[0];
@@ -219,6 +232,33 @@ class user{
 				die();
 			}
 		}
+	}
+
+	function sendText($message, $phone){
+		global $auth_id;
+		global $auth_token;
+
+	    $src = '15752151435';
+
+	    $url = 'https://api.plivo.com/v1/Account/'.$auth_id.'/Message/';
+	    
+	    $data = array("src" => "$src", "dst" => "$phone", "text" => "$message");
+	    
+	    $data_string = json_encode($data);
+	    
+	    $ch=curl_init($url);
+	    
+	    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	    curl_setopt($ch, CURLOPT_POST, true);
+	    curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+	    curl_setopt($ch, CURLOPT_HEADER, true);
+	    curl_setopt($ch, CURLOPT_FRESH_CONNECT, true);
+	    curl_setopt($ch, CURLOPT_USERPWD, $auth_id . ":" . $auth_token);
+	    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+	    
+	    $response = @curl_exec( $ch );
+	    
+	    @curl_close($ch);
 	}
 
 	function verifyVerificationCode(){
@@ -267,6 +307,58 @@ class user{
 		}else {
 			$output['success'] = false;
 			$output['data'] = "Something went wrong.  Try again later";
+			echo json_encode( $output );
+			die();
+		}
+	}
+
+	function reportProblem(){
+		global $JWT;
+		global $apl;
+		global $db;
+		global $post_data;
+
+		$error = false;
+		$error_message = array();
+
+		$insert_data = array();
+		$insert_data['user_id'] = $post_data->user_id;
+		$insert_data['issue_type'] = $post_data->issue_type;
+		$insert_data['issue_details'] = $post_data->issue_details;
+		$insert_data['status'] = 'Active';
+
+		if($insert_data['issue_details'] == null){
+			$error = true;
+			$error_message[] = "Invalid issue";
+		}
+
+		if(!$error){
+			$message = '';
+			$db->insert($apl->issue_table, $insert_data);
+			if($this->current_user_details->user_type == "store"){
+				$message .= $this->current_user_details->store_name . " reported an issue/suggestion";
+			}else{
+				$message .= $this->current_user_details->first_name . " " . $this->current_user_details->last_name . " reported an issue/suggestion";
+			}
+
+			$message .= '<br>' . $insert_data['issue_details'];
+			$message .= '<br> Reported by user id: ' . $insert_data['user_id'];
+			$subject = $insert_data['issue_type'];
+
+			$header = "From:help@zippcash.com \r\n";
+			$header .= "MIME-Version: 1.0\r\n";
+			$header .= "Content-type: text/html\r\n";
+
+
+			mail("zippcashapp@gmail.com", $subject, $message, $header);
+
+			$output['success'] = true;
+			$output['data'] = "Issue/Suggestion reported successfully";
+			echo json_encode( $output );
+			die();
+		}else{
+			$output['success'] = false;
+			$output['data'] = $error_message[0];
 			echo json_encode( $output );
 			die();
 		}
@@ -335,11 +427,15 @@ class user{
 				// $user_data['country_code'] = $post_data->country_code;
 				// $user_data['country_name'] = $post_data->country_name;
 				// $user_data['password'] = md5($post_data->password);
-				$user_data['temp_verification_code'] = '1776';
+				// $user_data['temp_verification_code'] = '1776';
+				$user_data['temp_verification_code'] = $apl->get_random_number(4);
 				$condition = array(
 					'phone' => $user_data['phone'],
 				);
 				if( $db->update( $apl->user_table, $user_data, $condition ) ){
+					$text = $user_data['temp_verification_code'] . ' is the verication code to reset password at zippcash. Please do not share it with anyone for security purposes';
+					$phone = str_replace("+", "", $user_data['phone']);
+					$res = $this->sendText($text, $phone);
 					$output['success'] = true;
 					echo json_encode( $output );
 					die();
@@ -555,6 +651,7 @@ class user{
 
 		$condition['user_id'] = $this->current_user_id;
 		$updateData['passcode'] = $post_data->passcode;
+		$updateData['is_locked'] = false;
 
 		$db->update($apl->user_table, $updateData, $condition);
 		$output['success'] = true;
@@ -568,11 +665,32 @@ class user{
 		global $post_data;
 		$error = false;
 		$output['data'] = null;
+		$output['redirect'] = false;
 
 		if(empty($post_data->passcode)){
 			$error = true;
 			$output['data'] = "Tanpri antre modpas ou";
 		}
+
+		if($this->current_user_details->is_locked){
+			$error = true;
+			$output['data'] = "Your account has been locked due to three incorrect attempts.";
+			$output['redirect'] = true;
+		}else{
+			if($post_data->passcodeAttempt){
+				if($post_data->passcodeAttempt >= 3){
+					$condition['user_id'] = $this->current_user_id;
+					$updateData['is_locked'] = true;
+
+					$db->update($apl->user_table, $updateData, $condition);
+
+					$error = true;
+					$output['data'] = "Your account has been locked due to three incorrect attempts.";
+					$output['redirect'] = true;
+				}
+			}
+		}
+
 
 		if($error == false){
 			$results = $db->get_results("select * from $apl->user_table where user_id = '".$this->current_user_id."' and passcode = '".$post_data->passcode."' and phone_verified = 'yes'");
@@ -586,6 +704,36 @@ class user{
 		}
 
 		$output['success'] = !$error;
+		echo json_encode($output);
+		die;
+	}
+
+	function verifyDOB(){
+		global $apl;
+		global $db;
+		global $post_data;
+
+		$error = false;
+		$output['data'] = null;
+		$output['redirect'] = false;
+		$output['success'] = false;
+
+		if(!$post_data->dob){
+			$error = true;
+			$output['data'] = "Invalid date of birth";
+		}
+
+		if(!$error){
+			$results = $db->get_results("select * from ".$apl->user_table." where dob = '".$post_data->dob."' and status = 'active'");
+
+			if(count($results) > 0){
+				$output['success'] = true;
+				$output['data'] = "Provided date of birth is correct";
+			}else{
+				$output['data'] = "Invalid date of birth";
+			}
+		}
+
 		echo json_encode($output);
 		die;
 	}
@@ -687,20 +835,31 @@ class user{
 		$error = false;
 		$error_message = array();
 
-		$query = "select * from $apl->lottery_table where status = 'inactive' order by lottery_id desc limit 2";
-		$results = $db->get_results($query);
-
 		$output['success'] = false;
 		$output['data'] = null;
 		$output['error'] = "Pa gen lotri kap vini kounye a.";
 
+		$query = "select * from $apl->lottery_table where status = 'inactive' and lottery_name = 'Maten' order by lottery_id desc limit 1";
+		$results = $db->get_results($query);
+
+
 		if(count($results)){
-			for($i = 0; $i < count($results); $i++){
-				$lottery_details[] = $this->get_lottery_details($results[$i]->lottery_id);
-			}
-			$output['success'] = true;
-			$output['data'] = $lottery_details;
+			$lottery_details[] = $this->get_lottery_details($results[0]->lottery_id);
 		}
+		
+		$query = "select * from $apl->lottery_table where status = 'inactive' and lottery_name = 'Aswè' order by lottery_id desc limit 1";
+		$results = $db->get_results($query);
+
+
+		if(count($results)){
+			$lottery_details[] = $this->get_lottery_details($results[0]->lottery_id);
+		}
+
+
+
+		$output['success'] = true;
+		$output['data'] = $lottery_details;
+		// print_r($output);
 		echo json_encode($output);
 		die;
 	}
@@ -867,8 +1026,10 @@ class user{
 		global $db;
 		global $post_data;
 
+		$error = false;
 		$error_message = array();
 		$output['success'] = false;
+		$output['redirect'] = false;
 		$user_ticket = array();
 
 		$user_ticket['user_id'] = $post_data->user_id;
@@ -879,41 +1040,57 @@ class user{
 		$user_ticket['purchased_by'] = 'user';
 		$user_ticket['purchased_by_id'] = $this->current_user_id;
 		$user_ticket['total_amount'] = 0;
+
+		if($this->current_user_details->is_locked){
+			$error = true;
+			$output['redirect'] = true;
+			$error_message[] = "Your account is locked. Please retrieve your passcode.";			
+		}
+
 		foreach($post_data->tickets as $key => $ticket){
+			$post_data->tickets[$key]->number = strtolower($post_data->tickets[$key]->number);
+			if(!preg_match('/^[0-9]{2}(([0-9]{1,3})|(x([0-9]{2})))?$/', $ticket->number)){
+				$error = true;
+				$error_message[] = "Invalid ticket number";
+				break;
+			}
 			$user_ticket['total_amount'] += $ticket->amount;
 		}
-		if($this->current_user_id == $post_data->user_id){
-			if($user_ticket['total_amount'] > 0){
 
-				$this->make_transaction($user_ticket['user_id'], 0, 'debit', 'lottery_ticket_purchase', $user_ticket['total_amount']);
-				$this->make_transaction(0, $user_ticket['user_id'], 'credit', 'lottery_ticket_purchase', $user_ticket['total_amount']);
+		if(!$error){
+			if($this->current_user_id == $post_data->user_id){
+				if($user_ticket['total_amount'] > 0){
 
-				$db->insert($apl->user_ticket_table, $user_ticket);
-				$ticket_id = $db->insert_id;
-				if($ticket_id != null){
-					$output['success'] = true;
-					$output['data'] = new stdClass();
-					$output['data']->ticket_id = $ticket_id;
-					$output['data']->user_id = $post_data->user_id;
-					$output['data']->total_amount = $user_ticket['total_amount'];
+					$this->make_transaction($user_ticket['user_id'], 0, 'debit', 'lottery_ticket_purchase', $user_ticket['total_amount']);
+					$this->make_transaction(0, $user_ticket['user_id'], 'credit', 'lottery_ticket_purchase', $user_ticket['total_amount']);
 
-					foreach($post_data->tickets as $key => $ticket){
-						$ticket_details = array();
-						$ticket_details['user_id'] = $post_data->user_id;
-						$ticket_details['ticket_id'] = $ticket_id;
-						$ticket_details['ticket_number'] = $ticket->number;
-						$ticket_details['ticket_amount'] = $ticket->amount;
+					$db->insert($apl->user_ticket_table, $user_ticket);
+					$ticket_id = $db->insert_id;
+					if($ticket_id != null){
+						$output['success'] = true;
+						$output['data'] = new stdClass();
+						$output['data']->ticket_id = $ticket_id;
+						$output['data']->user_id = $post_data->user_id;
+						$output['data']->total_amount = $user_ticket['total_amount'];
 
-						$db->insert($apl->ticket_details_table, $ticket_details);
+						foreach($post_data->tickets as $key => $ticket){
+							$ticket_details = array();
+							$ticket_details['user_id'] = $post_data->user_id;
+							$ticket_details['ticket_id'] = $ticket_id;
+							$ticket_details['ticket_number'] = $ticket->number;
+							$ticket_details['ticket_amount'] = $ticket->amount;
+
+							$db->insert($apl->ticket_details_table, $ticket_details);
+						}
+					}else{
+						$error_message[] = "Unable to add ticket to database";
 					}
 				}else{
-					$error_message[] = "Unable to add ticket to database";
+					$error_message[] = "kantite lajan ou rantre a pa valab";
 				}
 			}else{
-				$error_message[] = "kantite lajan ou rantre a pa valab";
+				$error_message[] = "Envalid Itilizatè";
 			}
-		}else{
-			$error_message[] = "Envalid Itilizatè";
 		}
 
 		$output['error'] = $error_message;
@@ -1026,7 +1203,7 @@ class user{
 			}else{
 				$output['success'] = false;
 				$output['data'] = null;
-				$output['error'] = "Specified ticket with id ".$ticket_id." not found.";
+				$output['error'] = "Ce ticket n'a pas été trouvé";
 			}
 		}else{
 			$error_message[] = "Envalid Itilizatè";
@@ -1445,20 +1622,20 @@ class user{
 					echo json_encode($output); die;
 				}else{
 					$output['email_verification'] = true;
-					$updateData['verification_code'] = '3223';
+					$updateData['verification_code'] = $apl->get_random_number(4);
 					$updateData['new_email'] = $post_data->email;
 				}
 			}
-			if($this->current_user_details->phone != $post_data->phone){
+			if($this->current_user_details->phone != $this->current_user_details->country_code.$post_data->phone){
 				if($this->is_phone_verified($post_data->phone)){
 					$output['data'] = "Nimewo telefòn sa egziste deja.";
 					echo json_encode($output); die;
 				}else{
 					$output['phone_verification'] = true;
 					if(!isset($updateData['verification_code'])){
-						$updateData['verification_code'] = '3223';
+						$updateData['verification_code'] = $apl->get_random_number(4);
 					}
-					$updateData['new_phone'] = $post_data->phone;
+					$updateData['new_phone'] = $this->current_user_details->country_code . $post_data->phone;
 				}
 			}
 			$updateData['first_name'] = $post_data->first_name;
@@ -1468,6 +1645,13 @@ class user{
 			}
 
 			$db->update($apl->user_table, $updateData, $condition);
+			
+			if($output['phone_verification']){
+				$text = $updateData['verification_code'] . ' is the verication code for updating phone number at zippcash. Please do not share it with anyone for security purposes';
+				$phone = str_replace("+", "", $updateData['new_phone']);
+				$res = $this->sendText($text, $phone);
+			}
+
 			$output['data'] = "pwofil ou ajou avèk siksè.";
 			$output['success'] = true;
 		}else{

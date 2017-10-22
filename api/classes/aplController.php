@@ -24,6 +24,8 @@ class aplController{
 
 	public $user_table = "user_info";
 
+	public $issue_table = "reported_issues";
+
 	public $lottery_table = "lottery_details";
 
 	public $lottery_result_table = "lottery_result";
@@ -184,7 +186,11 @@ class aplController{
 		for ($p = 0; $p < $length ; $p++) {
 			@$string .= $characters[mt_rand(0, strlen($characters))];
 		}
-		return $string;
+		if(strlen($string) != $length){
+			return $this->get_random_number($length);
+		}else{
+			return $string;
+		}
 	}
 
 	public function parse_data_in_table( $data_array, $table_class = '' ){

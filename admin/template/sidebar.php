@@ -21,6 +21,12 @@
                     <li>
                       <a href="<?php echo $apl->site_url; ?>index.php?options=users"><i class="fa fa-users"></i>Users</a>
                     </li>
+                    <li>
+                      <a href="<?php echo $apl->site_url; ?>index.php?options=stores"><i class="fa fa-bank"></i>Stores</a>
+                    </li>
+                    <li>
+                      <a href="<?php echo $apl->site_url; ?>index.php?options=transactions"><i class="fa fa-credit-card"></i>Transactions</a>
+                    </li>
                     <!-- <li>
                       <a href="<?php echo $apl->site_url; ?>index.php?options=account"><i class="fa fa-cog"></i>Account</a>
                     </li> -->

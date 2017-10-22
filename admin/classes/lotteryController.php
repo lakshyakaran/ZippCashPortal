@@ -219,13 +219,13 @@ class lottery{
 		if($user->is_logged_in()){
 			$next_lottery = new DateTime();
 			$current_hour = $next_lottery->format("G");
-			if($current_hour < 12){
-				$next_lottery->setTime(17,0,0);
-				$lottery_name = "Lotri Aswè";
+			if($current_hour < 16){
+				$next_lottery->setTime(19,30,0);
+				$lottery_name = "Aswè";
 			}else{
-				$next_lottery->setTime(11,0,0);
+				$next_lottery->setTime(12,30,0);
 				$next_lottery->modify('+1 day');
-				$lottery_name = "Lotri Matin";
+				$lottery_name = "Maten";
 			}
 
 			$next_lottery_date_time = $next_lottery->format("Y-m-d G:i:s");
@@ -274,14 +274,25 @@ class lottery{
 					$lottery_number_3 = $_POST['lottery_number_3'];
 					$combined_lottery_number = $_POST['lottery_number_2'].$_POST['lottery_number_3'];
 					if($lottery_number_1 != null && $lottery_number_2 != null && $lottery_number_3 != null){
-						if(($lottery_number_1 !== $lottery_number_2) && ($lottery_number_1 != $lottery_number_3) && ($lottery_number_2 != $lottery_number_3)){
-							if($lottery_number_1 >= 0 && $lottery_number_1 < 999 && $lottery_number_2 >= 0 && $lottery_number_2 < 100 && $lottery_number_3 >= 0 && $lottery_number_3 < 100){
-								if($lottery_number_1 > 99){
+						if(true){
+							if(strlen($lottery_number_1) < 5 && strlen($lottery_number_2) < 3 && strlen($lottery_number_3) < 3){
+								if(strlen($lottery_number_1) > 2){
 									$bonus_number = $lottery_number_1;
-									$lottery_number_1 = $lottery_number_1 - (floor($lottery_number_1/100) * 100);
+									$lottery_number_1 = substr($lottery_number_1, -2);
 								}else{
 									$bonus_number = null;
 								}
+
+								$marriage_numbers = array();
+								$marriage_numbers[] = $lottery_number_1.'x'.$lottery_number_2;
+								$marriage_numbers[] = $lottery_number_2.'x'.$lottery_number_1;
+
+								$marriage_numbers[] = $lottery_number_2.'x'.$lottery_number_3;
+								$marriage_numbers[] = $lottery_number_3.'x'.$lottery_number_2;
+
+								$marriage_numbers[] = $lottery_number_1.'x'.$lottery_number_3;
+								$marriage_numbers[] = $lottery_number_3.'x'.$lottery_number_1;
+
 								$user_tickets = $this->get_ticket_list_by_lottery($lottery_id);
 								if(count($user_tickets)){
 									foreach($user_tickets as $user_ticket){
@@ -307,6 +318,25 @@ class lottery{
 								}
 
 
+								$query = "select ticket_number, ticket_amount from $apl->user_ticket_table as utt, $apl->ticket_details_table as tdt where utt.ticket_id = tdt.ticket_id and tdt.ticket_number in ('".join("','",$marriage_numbers)."') and utt.lottery_id = '".$lottery_id."'";
+
+								$results = $db->get_results($query);
+
+								foreach ($marriage_numbers as $key => $value) {
+									$preview_lottery_result['marriage_number'][$marriage_numbers[$key]] = new stdClass();
+									$preview_lottery_result['marriage_number'][$marriage_numbers[$key]]->matched_number = 0;
+									$preview_lottery_result['marriage_number'][$marriage_numbers[$key]]->amount_received = 0;
+									$preview_lottery_result['marriage_number'][$marriage_numbers[$key]]->amount_to_pay = 0;
+								}
+
+								if(count($results)){
+									foreach ($results as $key => $result) {
+										$preview_lottery_result['marriage_number'][$result->ticket_number]->matched_number++;
+										$preview_lottery_result['marriage_number'][$result->ticket_number]->amount_received += $result->ticket_amount;
+										$preview_lottery_result['marriage_number'][$result->ticket_number]->amount_to_pay += ($result->ticket_amount * 600);
+										$total_amount_to_pay += $preview_lottery_result['marriage_number'][$result->ticket_number]->amount_to_pay;
+									}
+								}
 
 								$query = "select ticket_number, ticket_amount from $apl->user_ticket_table as utt, $apl->ticket_details_table as tdt where utt.ticket_id = tdt.ticket_id and tdt.ticket_number = '".$lottery_number_2.$lottery_number_3."' and utt.lottery_id = '".$lottery_id."'";
 								$results = $db->get_results($query);
@@ -398,11 +428,11 @@ class lottery{
 						'<tbody>'.
 							'<tr>'.
 								'<th style="width:50%">Total Amount Received:</th>'.
-								'<td> $'.$preview_lottery_result["total_amount_received"].'</td>'.
+								'<td> '.$preview_lottery_result["total_amount_received"].'</td>'.
 							'</tr>'.
 							'<tr>'.
 								'<th style="width:50%">Total Amount To Pay:</th>'.
-								'<td> $'.$preview_lottery_result["total_amount_to_pay"].'</td>'.
+								'<td> '.$preview_lottery_result["total_amount_to_pay"].'</td>'.
 							'</tr>'.
 						'</tbody>'.
 					'</table>'.
@@ -416,49 +446,60 @@ class lottery{
 						'<tr>'.
 							'<th>Lottery Number:</th>'.
 							'<th>Total Matched Number:</th>'.
-							'<th>Amount Received:</th>'.
-							'<th>Amount To Pay:</th>'.
+							'<th>Amount Received( Gourde ):</th>'.
+							'<th>Amount To Pay( Gourde ):</th>'.
 						'</tr>'.
 					'</thead>'.
 					'<tbody>';
+					foreach ($marriage_numbers as $key => $value){
+						$output['data'] .=
+						'<tr>'.
+							'<td> '.$marriage_numbers[$key].'</td>'.
+							'<td> '.$preview_lottery_result['marriage_number'][$marriage_numbers[$key]]->matched_number.'</td>'.
+							'<td> '.$preview_lottery_result['marriage_number'][$marriage_numbers[$key]]->amount_received.'</td>'.
+							'<td> '.$preview_lottery_result['marriage_number'][$marriage_numbers[$key]]->amount_to_pay.'</td>'.
+						'</tr>';
+					}
 					if($bonus_number != null){
 						$output['data'] .=
 						'<tr>'.
 							'<td>'.$bonus_number.'</td>'.
 							'<td> '.$preview_lottery_result["bonus_number"]->matched_number.'</td>'.
-							'<td> $'.$preview_lottery_result["bonus_number"]->amount_received.'</td>'.
-							'<td> $'.$preview_lottery_result["bonus_number"]->amount_to_pay.'</td>'.
+							'<td> '.$preview_lottery_result["bonus_number"]->amount_received.'</td>'.
+							'<td> '.$preview_lottery_result["bonus_number"]->amount_to_pay.'</td>'.
 						'</tr>';
 					}
+
 					$output['data'] .=
 						'<tr>'.
 							'<td>'.$combined_lottery_number.'</td>'.
 							'<td> '.$preview_lottery_result["combined_lottery_number"]->matched_number.'</td>'.
-							'<td> $'.$preview_lottery_result["combined_lottery_number"]->amount_received.'</td>'.
-							'<td> $'.$preview_lottery_result["combined_lottery_number"]->amount_to_pay.'</td>'.
+							'<td> '.$preview_lottery_result["combined_lottery_number"]->amount_received.'</td>'.
+							'<td> '.$preview_lottery_result["combined_lottery_number"]->amount_to_pay.'</td>'.
 						'</tr>'.
 						'<tr>'.
 							'<td>'.$lottery_number_1.'</td>'.
 							'<td> '.$preview_lottery_result["lottery_number_1"]->matched_number.'</td>'.
-							'<td> $'.$preview_lottery_result["lottery_number_1"]->amount_received.'</td>'.
-							'<td> $'.$preview_lottery_result["lottery_number_1"]->amount_to_pay.'</td>'.
+							'<td> '.$preview_lottery_result["lottery_number_1"]->amount_received.'</td>'.
+							'<td> '.$preview_lottery_result["lottery_number_1"]->amount_to_pay.'</td>'.
 						'</tr>'.
 						'<tr>'.
 							'<td>'.$lottery_number_2.'</td>'.
 							'<td> '.$preview_lottery_result["lottery_number_2"]->matched_number.'</td>'.
-							'<td> $'.$preview_lottery_result["lottery_number_2"]->amount_received.'</td>'.
-							'<td> $'.$preview_lottery_result["lottery_number_2"]->amount_to_pay.'</td>'.
+							'<td> '.$preview_lottery_result["lottery_number_2"]->amount_received.'</td>'.
+							'<td> '.$preview_lottery_result["lottery_number_2"]->amount_to_pay.'</td>'.
 						'</tr>'.
 						'<tr>'.
 							'<td>'.$lottery_number_3.'</td>'.
 							'<td> '.$preview_lottery_result["lottery_number_3"]->matched_number.'</td>'.
-							'<td> $'.$preview_lottery_result["lottery_number_3"]->amount_received.'</td>'.
-							'<td> $'.$preview_lottery_result["lottery_number_3"]->amount_to_pay.'</td>'.
+							'<td> '.$preview_lottery_result["lottery_number_3"]->amount_received.'</td>'.
+							'<td> '.$preview_lottery_result["lottery_number_3"]->amount_to_pay.'</td>'.
 						'</tr>'.
 						'<tr>'.
 							'<td></td>'.
 							'<td> <strong>Total</strong></td>'.
-							'<td> <strong>$'.$preview_lottery_result["total_amount_to_pay"].'</strong></td>'.
+							'<td> <strong>'.$preview_lottery_result["total_amount_received"].'</strong></td>'.
+							'<td> <strong>'.$preview_lottery_result["total_amount_to_pay"].'</strong></td>'.
 						'</tr>'.
 					'</tbody>'.
 				'</table>'.
@@ -494,15 +535,27 @@ class lottery{
 						$lottery_number_2 = $_POST['lottery_number_2'];
 						$lottery_number_3 = $_POST['lottery_number_3'];
 						$combined_lottery_number = $_POST['lottery_number_2'].$_POST['lottery_number_3'];
+
 						if($lottery_number_1 != null && $lottery_number_2 != null && $lottery_number_3 != null){
-							if(($lottery_number_1 !== $lottery_number_2) && ($lottery_number_1 != $lottery_number_3) && ($lottery_number_2 != $lottery_number_3)){
-								if($lottery_number_1 >= 0 && $lottery_number_1 < 999 && $lottery_number_2 >= 0 && $lottery_number_2 < 100 && $lottery_number_3 >= 0 && $lottery_number_3 < 100){
-									if($lottery_number_1 > 99){
+							if(true){
+								if(strlen($lottery_number_1) < 5 && strlen($lottery_number_2) < 3 && strlen($lottery_number_3) < 3){
+									if(strlen($lottery_number_1) > 2){
 										$bonus_number = $lottery_number_1;
-										$lottery_number_1 = $lottery_number_1 - (floor($lottery_number_1/100) * 100);
+										$lottery_number_1 = substr($lottery_number_1, -2);
 									}else{
 										$bonus_number = null;
 									}
+
+									$marriage_numbers = array();
+									$marriage_numbers[] = $lottery_number_1.'x'.$lottery_number_2;
+									$marriage_numbers[] = $lottery_number_2.'x'.$lottery_number_1;
+
+									$marriage_numbers[] = $lottery_number_2.'x'.$lottery_number_3;
+									$marriage_numbers[] = $lottery_number_3.'x'.$lottery_number_2;
+
+									$marriage_numbers[] = $lottery_number_1.'x'.$lottery_number_3;
+									$marriage_numbers[] = $lottery_number_3.'x'.$lottery_number_1;
+
 									$amount_paid = 0;
 									$amount_received = 0;
 									$user_tickets = $this->get_ticket_list_by_lottery($lottery_id);
@@ -525,8 +578,10 @@ class lottery{
 																$win_amount = $ticket_detail->ticket_amount * 20;
 															}elseif ($ticket_detail->ticket_number == $lottery_number_3) {
 																$win_amount = $ticket_detail->ticket_amount * 10;
-															}else {
-																$win_amount = 0.00;
+															}elseif(in_array($ticket_detail->ticket_number, $marriage_numbers)) {
+																$win_amount = $ticket_detail->ticket_amount * 600;
+															}else{
+																$win_amount = 0.0;
 															}
 															$ticket_win_amount += $win_amount;
 															$ticket_detail_update_data = array(

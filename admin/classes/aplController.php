@@ -24,6 +24,8 @@ class aplController{
 
 	public $user_table = "user_info";
 
+	public $agent_table = "user_agent";
+
 	public $user_wallet_table = "user_wallet";
 
 	public $lottery_table = "lottery_details";

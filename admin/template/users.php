@@ -50,12 +50,14 @@
                                     <td class=" "><?php echo $user->user_id; ?></td>
                                     <td class=" "><?php echo $user->first_name."&nbsp;".$user->last_name; ?></td>
                                     <td class=" "><?php echo $user->email; ?></td>
-                                    <td class=" "><?php echo $user->country_code."-".$user->phone; ?></td>
+                                    <td class=" "><?php echo $user->phone; ?></td>
                                     <td class=" "><?php echo $user->country_name; ?></td>
                                     <td class=" "><?php echo $user->date_time; ?></td>
                                     <td class=" ">
                                       <?php
                                         echo "<a href = '".$apl->site_url."index.php?options=user/".$user->user_id."'>Details</a>";
+                                        echo '&nbsp;&nbsp;&nbsp;&nbsp;';
+                                        echo "<a href = '".$apl->site_url."index.php?options=reset_passcode&login_id=".$user->login_id."'>Reset Passcode</a>";
                                       ?>
                                     </td>
                                     <?php if($key%2 == 0): ?>

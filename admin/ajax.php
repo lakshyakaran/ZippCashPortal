@@ -4,6 +4,16 @@ session_start();
 require_once "config.php";
 require_once "load.php";
 
+require 'vendor/autoload.php';
+
+use Plivo\RestAPI;
+
+$auth_id = "MAOTUYN2NJM2M3MGJKNG";
+
+$auth_token = "MDMyYjg5MWIxOWIyMzk5ZjA1MDM1ODIwZWE3MTZh";
+
+// $plivo = new RestAPI($auth_id, $auth_token);
+
 $db = new db( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST);
 
 $apl = new aplController();
