@@ -1102,7 +1102,7 @@ class user{
 		global $apl;
 
 		$start = ($page - 1) * 10;
-		$limit = 10;
+		$limit = 50;
 
 		$query = "select * from $apl->transaction_details_table as tdt, $apl->user_table as ut where tdt.account_holder_id = '".$account_holder_id."' and (tdt.refrence_account_id = ut.user_id or tdt.refrence_account_id = '0') order by transaction_id desc limit ".$start.", ".$limit."";
 		$results = $db->get_results($query);
