@@ -134,6 +134,12 @@
                                   if($value->transaction_name == "ticket_win_amount"){
                                     $summary = "Amount paid for ticket win.";
                                   }
+                                  if($value->transaction_name == "bank_withdrawl"){
+                                    $summary = "Amount withdrawn from bank.";
+                                  }
+                                  if($value->transaction_name == "bank_deposit"){
+                                    $summary = "Amount deposit to bank.";
+                                  }
                                   if($value->refrence_account_id == 0){
                                     $name = "ZippCash";
                                     $value->refrence_account_id = "NA";

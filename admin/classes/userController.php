@@ -815,6 +815,107 @@ class user{
 		die;
 	}
 
+	function withdrawZIppcashCredit(){
+		global $db;
+		global $apl;
+		$error = false;
+		$message = true;
+		$zippcash_account_details = $this->get_zippcash_account_details();
+		if(isset($_POST['debit_amount'])){
+			if($_POST['debit_amount'] != null && $_POST['debit_amount'] > 0 && is_numeric($_POST['debit_amount'])){
+				if($zippcash_account_details->available_balance < $_POST['debit_amount']){
+					$error = true;
+					$message = "Insufficient funds";
+				}else{
+					$debit_amount = $_POST['debit_amount'];
+				}
+			}else{
+				$error = true;
+				$message = "Invalid withdrawal amount";
+			}
+		}else{
+			$error = true;
+			$message = "Invalid withdrawal amount";
+		}
+
+		if(!$error){
+			$amount = $_POST['debit_amount'];
+			$previous_balance = $zippcash_account_details->available_balance;
+			$current_balance = $zippcash_account_details->available_balance - $amount;
+			$transaction_name = "bank_withdrawl";
+			$transaction_type = 'debit';
+			$transaction_data = array(
+				'account_holder_id' => 0,
+				'refrence_account_id' => 0,
+				'previous_balance' => $previous_balance,
+				'current_balance' => $current_balance,
+				'transaction_type' => $transaction_type,
+				'transaction_name' => $transaction_name,
+				'transaction_amount' => $amount,
+				'initiated_by' => 'bank',
+				'initiated_by_id' => $this->current_user_id,
+				'transaction_status' => 'complete'
+			);
+
+			if($db->insert($apl->transaction_details_table, $transaction_data)){
+				$this->update_wallet(0, $current_balance);
+			}
+		}
+
+		if($error){
+			return $message;
+		}
+
+		return "success";
+	}
+
+	function addZIppcashCredit(){
+		global $db;
+		global $apl;
+		$error = false;
+		$message = true;
+		$zippcash_account_details = $this->get_zippcash_account_details();
+		if(isset($_POST['credit_amount'])){
+			if($_POST['credit_amount'] == null || $_POST['credit_amount'] <= 0 || !is_numeric($_POST['credit_amount'])){
+				$error = true;
+				$message = "Invalid deposit amount";
+			}
+		}else{
+			$error = true;
+			$message = "Invalid deposit amount";
+		}
+
+		if(!$error){
+			$amount = $_POST['credit_amount'];
+			$previous_balance = $zippcash_account_details->available_balance;
+			$current_balance = $zippcash_account_details->available_balance + $amount;
+			$transaction_name = "bank_deposit";
+			$transaction_type = 'credit';
+			$transaction_data = array(
+				'account_holder_id' => 0,
+				'refrence_account_id' => 0,
+				'previous_balance' => $previous_balance,
+				'current_balance' => $current_balance,
+				'transaction_type' => $transaction_type,
+				'transaction_name' => $transaction_name,
+				'transaction_amount' => $amount,
+				'initiated_by' => 'bank',
+				'initiated_by_id' => $this->current_user_id,
+				'transaction_status' => 'complete'
+			);
+
+			if($db->insert($apl->transaction_details_table, $transaction_data)){
+				$this->update_wallet(0, $current_balance);
+			}
+		}
+
+		if($error){
+			return $message;
+		}
+
+		return "success";
+	}
+
 	function recharge_wallet($user_id, $credit_amount){
 		global $db;
 		global $apl;
@@ -1003,11 +1104,17 @@ class user{
 		$start = ($page - 1) * 10;
 		$limit = 10;
 
-		$query = "select * from $apl->transaction_details_table as tdt, $apl->user_table as ut where tdt.account_holder_id = '".$account_holder_id."' and tdt.refrence_account_id = ut.user_id order by transaction_id desc limit ".$start.", ".$limit."";
+		$query = "select * from $apl->transaction_details_table as tdt, $apl->user_table as ut where tdt.account_holder_id = '".$account_holder_id."' and (tdt.refrence_account_id = ut.user_id or tdt.refrence_account_id = '0') order by transaction_id desc limit ".$start.", ".$limit."";
 		$results = $db->get_results($query);
 
 		if(count($results)){
-			return $results;
+			$known = array();
+			$filtered = array_filter($results, function ($val) use (&$known) {
+			    $unique = !in_array($val->transaction_id, $known);
+			    $known[] = $val->transaction_id;
+			    return $unique;
+			});
+			return $filtered;
 		}
 
 		return false;
