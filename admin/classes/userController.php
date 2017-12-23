@@ -198,6 +198,32 @@ class user{
 		return $db->update( $apl->user_table, $update_data, $condition );
 	}
 
+	function block_user($user_id){
+		global $apl;
+		global $db;
+
+		$update_data = array(
+			'status' => 'blocked'
+		);
+		$condition = array(
+			'user_id' => $user_id
+		);
+		return $db->update( $apl->user_table, $update_data, $condition );
+	}
+
+	function unblock_user($user_id){
+		global $apl;
+		global $db;
+
+		$update_data = array(
+			'status' => 'active'
+		);
+		$condition = array(
+			'user_id' => $user_id
+		);
+		return $db->update( $apl->user_table, $update_data, $condition );
+	}
+
 	function get_admin_data( $user_id ){
 		global $apl;
 		global $db;

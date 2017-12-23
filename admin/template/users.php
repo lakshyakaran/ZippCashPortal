@@ -58,6 +58,12 @@
                                         echo "<a href = '".$apl->site_url."index.php?options=user/".$user->user_id."'>Details</a>";
                                         echo '&nbsp;&nbsp;&nbsp;&nbsp;';
                                         echo "<a href = '".$apl->site_url."index.php?options=reset_passcode&login_id=".$user->login_id."'>Reset Passcode</a>";
+                                        echo '&nbsp;&nbsp;&nbsp;&nbsp;';
+                                        if($user->status === 'active'){
+                                          echo "<a href = '".$apl->site_url."index.php?options=block_user&user_id=".$user->user_id."'>Block</a>";
+                                        }else{
+                                          echo "<a href = '".$apl->site_url."index.php?options=unblock_user&user_id=".$user->user_id."'>Unblock</a>";
+                                        }
                                       ?>
                                     </td>
                                     <?php if($key%2 == 0): ?>
