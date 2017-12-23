@@ -608,17 +608,22 @@ class user{
 		if($error == false){
 			$results = $db->get_results("select * from $apl->user_table where phone = '".$post_data->email."' and password = '".md5($post_data->password)."' and phone_verified = 'yes'");
 			if(count($results)){
-				$login_id = $results[0]->login_id;
-				$user_type = $results[0]->user_type;
-				$token = array(
-					"login_id" => $login_id,
-					"user_type" => $user_type
-				);
-				$jwt = $JWT::encode($token, SECRET_KEY);
+				if($results[0]->status === 'active'){
+					$login_id = $results[0]->login_id;
+					$user_type = $results[0]->user_type;
+					$token = array(
+						"login_id" => $login_id,
+						"user_type" => $user_type
+					);
+					$jwt = $JWT::encode($token, SECRET_KEY);
 
-				$error = false;
-				$output['token'] = $jwt;
-				$output['data'] = $results[0];
+					$error = false;
+					$output['token'] = $jwt;
+					$output['data'] = $results[0];
+				}else{
+					$error = true;
+					$output['data'] = "Your account has been blocked. Please contact support.";					
+				}
 			}else{
 				$error = true;
 				$output['data'] = "Non itilizatè a pa valab oswa modpas. Eseye ankò";
