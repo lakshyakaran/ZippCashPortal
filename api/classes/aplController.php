@@ -40,6 +40,8 @@ class aplController{
 
 	public $payment_details_table = "payment_details";
 
+	public $user_messages_table = "user_messages";
+
 	function __construct(){
 		if( $this->site_title == null )
 			$this->site_title = "NGO Time";

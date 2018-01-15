@@ -95,6 +95,38 @@ class user{
 		return false;
 	}
 
+	function checkReferral(){
+		global $db;
+		global $apl;
+		global $post_data;
+
+		$error = false;
+		$error_message = array();
+
+		if( empty( $post_data->referral_id ) ):
+			$error = true;
+			$error_message[] = "Invalid referral ID.";
+		endif;
+
+		if( !$error ){
+			$user_data = $db->get_results( "select * from ".$apl->user_table." where slug = '".$post_data->referral_id."' limit 1" );
+			if(!empty($user_data)){
+				$output['success'] = true;
+				$output['data'] = $user_data;
+			}else{
+				$output['success'] = false;
+				$output['error'] = 'The specified referral ID is invalid.';
+			}
+			echo json_encode( $output );
+			die();
+		}else{
+			$output['success'] = false;
+			$output['data'] = $error_message[0];
+			echo json_encode( $output );
+			die();
+		}
+	}
+
 	function sendVerificationCode(){
 		global $db;
 		global $apl;
@@ -158,6 +190,7 @@ class user{
 			endif;
 
 			if( !$error ){
+				$wallet_balance = null;
 				$user_data['first_name'] = $post_data->first_name;
 				$user_data['last_name'] = $post_data->last_name;
 				// $user_data['email'] = $post_data->email;
@@ -169,6 +202,11 @@ class user{
 				$user_data['verification_code'] = $apl->get_random_number(4);
 
 				$user_data['user_type'] = 'individual';
+
+				if( !empty( $post_data->referral_id ) ):
+					$user_data['referral_id'] = $post_data->referral_id;
+					$wallet_balance = 2;
+				endif;
 
 				if( $this->checkRegistered( 'boolean' ) ){
 					$update_data['verification_code'] = $apl->get_random_number(4);
@@ -207,7 +245,7 @@ class user{
 							'user_id' => $user_id
 						);
 						$db->update($apl->user_table, $update_data, $condition);
-						if(!$this->create_user_wallet($user_id)){
+						if(!$this->create_user_wallet($user_id, $wallet_balance)){
 							$output['success'] = false;
 							$output['error'] = 'Unable to create wallet';
 						}
@@ -289,12 +327,18 @@ class user{
 				$update_data['verification_code'] = '1111';
 				$update_data['token'] = $jwt;
 				$update_data['phone_verified'] = 'yes';
+				$update_data['slug'] = str_replace(" ", "-", strtolower(trim($results[0]->first_name)));
+				$exists = $this->get_one_value("select count(user_id) from ".$apl->user_table." where slug = '".$update_data['slug']."'");
+				if($exists > 0){
+					$update_data['slug'] = $update_data['slug'].$exists;
+				}
 				$condition = array(
 					'phone' => $phone
 				);
 				$db->update( $apl->user_table, $update_data, $condition );
 				$output['success'] = true;
 				$output['data'] = $results[0];
+				$output['updated'] = $update_data;
 				$output['token'] = $jwt;
 				echo json_encode( $output );
 				die();
@@ -660,6 +704,38 @@ class user{
 
 		$db->update($apl->user_table, $updateData, $condition);
 		$output['success'] = true;
+		echo json_encode( $output );
+		die;
+	}
+
+	function getUnreadMessageCount(){
+		global $apl;
+		global $db;
+		global $post_data;
+
+		$condition['user_id'] = $this->current_user_id;
+
+		$results = $db->get_results('select * from '.$apl->user_messages_table.' where to_user_id = "'.$this->current_user_id.'" and status = "unread" ');
+
+		
+		$output['success'] = true;
+		$output['unreadMessageCount'] = count($results);
+		echo json_encode( $output );
+		die;
+	}
+
+	function getUserMessages(){
+		global $apl;
+		global $db;
+		global $post_data;
+
+		$condition['user_id'] = $this->current_user_id;
+
+		$results = $db->get_results('select * from '.$apl->user_messages_table.' where to_user_id = "'.$this->current_user_id.'" and status = "unread" ');
+
+		
+		$output['success'] = true;
+		$output['userMessages'] = $results;
 		echo json_encode( $output );
 		die;
 	}
@@ -1247,7 +1323,7 @@ class user{
 
 		if($user_id != null && $user_id != 0 ){
 			if($initial_balance == null){
-				$initial_balance = 500;
+				$initial_balance = 0;
 			}
 			$wallet_data = array(
 				'user_id' => $user_id,
@@ -1508,7 +1584,7 @@ class user{
 		global $db;
 
 		if($user_id){
-			$result = $db->get_results( "select * from ".$apl->user_table." where user_id = '".$user_id."'" );
+			$result = $db->get_results( "select * from ".$apl->user_table." where user_id = '".$user_id."' and status = 'active'" );
 			if( count($result) > 0 ){
 				return true;
 			}
@@ -1722,6 +1798,17 @@ class user{
 		echo json_encode( $output );
 		die();
 	}
+
+	function get_one_value( $query ) {
+		global $JWT;
+		global $apl;
+		global $db;
+		global $post_data;
+
+	    $result = $db->get_results($query);
+	    return count($result);
+	}
+
 	function logout(){
 		session_destroy();
 	}

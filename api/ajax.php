@@ -39,7 +39,7 @@ $JWT = new JWT;
 
 if( isset( $controller ) && isset( $action ) ){
 	if( class_exists( $controller ) && method_exists( $controller, $action ) ){
-		if( $action != 'sendVerificationCode' && $action != 'verifyVerificationCode' && $action != 'authenticateUser' && $action != 'sendTempVerificationCode' && $action != 'verifyTempVerificationCode' && $action != 'updatePassword' && $action != 'getLastLottery'){
+		if( $action != 'sendVerificationCode' && $action != 'verifyVerificationCode' && $action != 'authenticateUser' && $action != 'sendTempVerificationCode' && $action != 'verifyTempVerificationCode' && $action != 'updatePassword' && $action != 'getLastLottery' && $action != 'checkReferral'){
 			$header_array = apache_request_headers();
 			// var_dump($header_array);
 			if(!isset($header_array['X-Auth-Token']) && !isset($header_array['x-auth-token'])){

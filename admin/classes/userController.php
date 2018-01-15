@@ -198,6 +198,33 @@ class user{
 		return $db->update( $apl->user_table, $update_data, $condition );
 	}
 
+	function send_message($message){
+		global $apl;
+		global $db;
+
+		$user_list = $this->get_user_list();
+		foreach ($user_list as $user) {
+			if($user->user_type === 'individual'){
+				$insert_data = array(
+					'to_user_id' => $user->user_id,
+					'from_user_id' => null,
+					'message_body' => $message,
+					'status' => 'unread',
+				);
+				$db->insert( $apl->user_messages_table, $insert_data );
+			}
+		}
+		return true;
+
+		// $insert_data = array(
+		// 	'passcode' => $passcode
+		// );
+		// $condition = array(
+		// 	'user_id' => $user_id
+		// );
+		// return $db->update( $apl->user_table, $update_data, $condition );
+	}
+
 	function block_user($user_id){
 		global $apl;
 		global $db;
