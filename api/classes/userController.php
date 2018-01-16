@@ -724,14 +724,34 @@ class user{
 		die;
 	}
 
+	function markMessageAsRead(){
+		global $apl;
+		global $db;
+		global $post_data;
+
+		$condition['to_user_id'] = $this->current_user_id;
+		$update_data['status'] = 'read';
+
+		$db->update($apl->user_messages_table, $update_data, $condition);
+		
+		$output['success'] = true;
+		echo json_encode( $output );
+		die;
+	}
+
 	function getUserMessages(){
 		global $apl;
 		global $db;
 		global $post_data;
 
+		$no_of_results = 10;
+		if(isset($post_data->count)){
+			$start = $post_data->count * $no_of_results;
+		}
+
 		$condition['user_id'] = $this->current_user_id;
 
-		$results = $db->get_results('select * from '.$apl->user_messages_table.' where to_user_id = "'.$this->current_user_id.'" and status = "unread" ');
+		$results = $db->get_results('select * from '.$apl->user_messages_table.' where to_user_id = "'.$this->current_user_id.'" order by datetime desc limit '.$start.', ' . $no_of_results);
 
 		
 		$output['success'] = true;
